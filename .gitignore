@@ -7,5 +7,7 @@ upsilon.egg-info/*
 
 output/*
 
+diagnostics/*
+
 dist/*
 .DS_Store

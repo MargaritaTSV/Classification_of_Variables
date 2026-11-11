@@ -44,6 +44,12 @@ def get_feature_set_all():
     features.append('weighted_mean')
     features.append('weighted_std')
 
+    # Period-doubling diagnostics (P vs 2P check for eclipsing binaries).
+    features.append('ls_raw_period')
+    features.append('period_doubled')
+    features.append('bic_period')
+    features.append('bic_double_period')
+
     features.sort()
 
     return features

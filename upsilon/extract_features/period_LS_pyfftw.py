@@ -53,6 +53,7 @@ Reference:
 """
 
 from numpy import *
+import numpy as np
 
 try:
     import pyfftw
@@ -79,7 +80,7 @@ def __spread__(y, yy, n, x, m):
         yy[ix] = yy[ix]+y
     else:
         ilo = int(x - 0.5*float(m) + 1.0)
-        ilo = min(max(ilo, 1), n - m + 1) 
+        ilo = int(np.clip(ilo, 1, n - m + 1))
         ihi = ilo + m - 1
         nden = nfac[m]
         

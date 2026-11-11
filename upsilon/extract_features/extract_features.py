@@ -7,6 +7,7 @@ import scipy.stats as ss
 from scipy.optimize import leastsq
 
 import upsilon.extract_features.period_LS_pyfftw as pLS
+import upsilon.extract_features.period_doubling as pdbl
 
 from upsilon.extract_features.feature_set import get_feature_set
 from upsilon.extract_features.feature_set import get_feature_set_all
@@ -32,7 +33,9 @@ class ExtractFeatures:
     min_period : float, optional
         The minimum period to calculate.
     """
-    def __init__(self, date, mag, err=None, n_threads=4, min_period=0.03):
+    def __init__(self, date, mag, err=None, n_threads=4, min_period=0.03,
+                 save_diagnostics=False, diagnostics_dir='diagnostics',
+                 star_id='star'):
         # Set basic values.
         if not isinstance(date, np.ndarray):
             date = np.array(date)
@@ -74,6 +77,10 @@ class ExtractFeatures:
             self.min_period = 0.03
         else:
             self.min_period = min_period
+
+        self.save_diagnostics = save_diagnostics
+        self.diagnostics_dir = diagnostics_dir
+        self.star_id = star_id
 
     def run(self):
         """Run feature extraction modules."""
@@ -148,8 +155,10 @@ class ExtractFeatures:
         # Should be called after the getPeriodLS() is called.
 
         # Created phased a folded light curve.
-        # We use period * 2 to take eclipsing binaries into account.
-        phase_folded_date = self.date % (self.period * 2.)
+        # self.period is already corrected for eclipsing-binary period
+        # doubling (see get_period_LS), so folding on it directly is
+        # correct -- no need to blanket-fold on 2x period anymore.
+        phase_folded_date = self.date % self.period
         sorted_index = np.argsort(phase_folded_date)
 
         folded_date = phase_folded_date[sorted_index]
@@ -204,6 +213,22 @@ class ExtractFeatures:
             np.log10(pLS.getSignificance(fx, fy, nout, oversampling)[jmax])
         # self.f_SNR1 = fy[jmax] / np.median(fy)
         self.period_SNR = (fy[jmax] - np.median(fy)) / np.std(fy)
+
+        # Eclipsing binaries with near-identical minima make the
+        # single-harmonic LS above lock onto half the true period.
+        # Compare P vs 2P with a BIC-penalized multi-harmonic fit.
+        self.ls_raw_period = self.period
+        doubling_result = pdbl.check_period_doubling(date, mag, self.period)
+        self.period_doubled = doubling_result['doubled']
+        self.bic_period = doubling_result['bic_period']
+        self.bic_double_period = doubling_result['bic_double_period']
+        if self.period_doubled:
+            self.period = doubling_result['period_doubled_candidate']
+            self.f = 1. / self.period
+
+        if self.save_diagnostics:
+            pdbl.save_diagnostics(date, mag, doubling_result,
+                                  self.diagnostics_dir, star_id=self.star_id)
 
         # Fit Fourier Series of order 3.
         order = 3
