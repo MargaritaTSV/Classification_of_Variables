@@ -19,7 +19,66 @@ UPSILoN mainly consists of two parts, one is extracting variability features fro
 
 
 In principle, UPSILoN can classify any light curves having arbitrary number of data points. However, for the best classification quality, we recommend to use light curves with more than ~80 data points.
- 
+
+
+## What This Fork Adds: Pulsator-Safe Period Doubling
+
+This fork improves how UPSILoN handles the **P/2 period problem**. A
+single-harmonic Lomb–Scargle fit locks onto *half* the true period of an
+eclipsing binary (EB) whose two eclipses look similar, because one sinusoid per
+cycle fits better at twice the true frequency. Left uncorrected, these stars
+are reported at P/2 and can land in the wrong class.
+
+The original attempt corrected this by doubling the period whenever a
+multi-harmonic fit at `2P` had a lower BIC than at `P`. Tested on the labelled
+[LINEAR](http://neo.jpl.nasa.gov/programs/linear.html) variable sample, that
+blanket rule fails **two** ways at once:
+
+1. **It falsely doubles pulsators.** ~12% of RR Lyrae ab were spuriously
+   doubled — their odd harmonics at `2P` catch Blazhko / cycle-to-cycle
+   modulation, not a real secondary eclipse. **Pulsators must never be
+   doubled.**
+2. **It misses contact binaries.** Only ~30% of EW (contact) binaries were
+   recovered, because near-equal eclipses give an odd-harmonic signal too weak
+   to overcome BIC's parameter penalty.
+
+Because these errors pull in opposite directions, no single ΔBIC threshold can
+fix both. The fix (`upsilon/extract_features/period_doubling.py`) replaces the
+bare BIC test with a **morphology-aware decision score** — the noise-calibrated
+odd-harmonic amplitude at `2P` plus light-curve shape statistics (skewness,
+amplitude, half-magnitude ratio) alongside ΔBIC — with coefficients tuned on
+the LINEAR labels so the pulsator false-double rate is held near 2%. No new
+model file is required and the public API is unchanged.
+
+**Results** (real Lomb–Scargle pipeline, same stars, legacy rule → this fork):
+
+| Type | Final period correct | Pulsator "bad-doubles" |
+|------|:---:|:---:|
+| RR Lyrae ab (pulsator) | 73% → **83%** | 4/30 → **1/30** |
+| RR Lyrae c (pulsator)  | 83% → **90%** | 3/30 → **1/30** |
+| EA (Algol EB)          | 43% → **47%** | — |
+| EW (contact EB)        | 27% → **30%** | — |
+
+On a held-out sample the RR Lyrae ab false-double rate drops from **12% to
+~1%**. Contact-binary recovery improves but stays limited: truly
+identical-eclipse systems are genuinely ambiguous between `P` and `P/2` from
+photometry alone.
+
+The doubling check now runs automatically inside `ExtractFeatures`, so the
+returned `period` is already corrected. A demo and an evaluation/tuning harness
+are included:
+
+```python
+# Quick demo: synthetic EB is doubled, a real Cepheid is not.
+python -m upsilon.test.period_doubling_demo
+
+# Evaluate / retune the decision rule on the labelled LINEAR sample.
+python -m upsilon.test.evaluate_doubling                 # report + tune
+python -m upsilon.test.evaluate_doubling --endtoend 30   # full real-LS pipeline
+```
+
+The rest of this README is the original UPSILoN documentation.
+
 
 ## Index
 1. [Dependency](#1-dependency)
@@ -306,6 +365,15 @@ Although UPSILoN could be run at any decent machines, we recommend to run it at 
 
 
 ## ChangeLog
+
+### Fork: pulsator-safe period doubling
+- Replace the blanket `BIC(2P) < BIC(P)` eclipsing-binary period-doubling rule
+  with a morphology-aware, data-tuned decision score. Cuts RR Lyrae ab
+  false-doubles from ~12% to ~1% and improves eclipsing-binary recovery.
+- Thread magnitude errors into `check_period_doubling`; expose the odd-harmonic
+  SNR and decision score on `ExtractFeatures`.
+- Add `upsilon/test/evaluate_doubling.py` to tune/evaluate the rule on the
+  labelled LINEAR sample. See [What This Fork Adds](#what-this-fork-adds-pulsator-safe-period-doubling).
 
 ### v?.?.? (TBC)
 - add a complementary classification model of other machine learning algorithm (e.g. Deep Neural Network).
