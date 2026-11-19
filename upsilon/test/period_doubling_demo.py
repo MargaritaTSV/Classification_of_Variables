@@ -87,6 +87,8 @@ def run():
     print('Final period (after):   %.6f d' % features.period)
     print('BIC(P):                 %.3f' % features.bic_period)
     print('BIC(2P):                %.3f' % features.bic_double_period)
+    print('odd-harmonic SNR (2P):  %.2f' % features.period_double_snr_odd)
+    print('decision score (>0=2P): %.3f' % features.period_double_score)
     print('Doubled:                %s' % features.period_doubled)
     print()
 
@@ -104,6 +106,8 @@ def run():
     print('Final period (after):   %.6f d' % features.period)
     print('BIC(P):                 %.3f' % features.bic_period)
     print('BIC(2P):                %.3f' % features.bic_double_period)
+    print('odd-harmonic SNR (2P):  %.2f' % features.period_double_snr_odd)
+    print('decision score (>0=2P): %.3f' % features.period_double_score)
     print('Doubled:                %s' % features.period_doubled)
     print()
 

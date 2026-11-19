@@ -218,10 +218,13 @@ class ExtractFeatures:
         # single-harmonic LS above lock onto half the true period.
         # Compare P vs 2P with a BIC-penalized multi-harmonic fit.
         self.ls_raw_period = self.period
-        doubling_result = pdbl.check_period_doubling(date, mag, self.period)
+        doubling_result = pdbl.check_period_doubling(
+            date, mag, self.period, err=self.err)
         self.period_doubled = doubling_result['doubled']
         self.bic_period = doubling_result['bic_period']
         self.bic_double_period = doubling_result['bic_double_period']
+        self.period_double_snr_odd = doubling_result['snr_odd']
+        self.period_double_score = doubling_result['decision_score']
         if self.period_doubled:
             self.period = doubling_result['period_doubled_candidate']
             self.f = 1. / self.period
